@@ -35,6 +35,9 @@ func requestDigest(value any) (string, error) {
 
 func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string, request any, command func(context.Context, Repository) (T, error)) (T, error) {
 	var zero T
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
 	if !domain.ValidIdempotencyKey(key) {
 		return zero, domain.ValidationErrors{{Field: "idempotencyKey", Message: "长度必须在 8 到 128 之间"}}
 	}
