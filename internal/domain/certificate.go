@@ -52,7 +52,7 @@ func IssueCertificate(tree TreeAsset, evidence InspectionEvidence, task Remediat
 	if !passed || task.Status != TaskClosed || tree.CurrentStatus != TreeClosed {
 		return CareCertificate{}, ErrTransition
 	}
-	c := CareCertificate{ID: NewID("cert"), TreeID: tree.ID, RecheckedAt: input.RecheckedAt.UTC(), Metrics: input.Metrics, Result: input.Result, Inspector: input.Inspector, IssuedAt: issuedAt.UTC()}
+	c := CareCertificate{ID: NewID("cert"), TreeID: tree.ID, RecheckedAt: input.RecheckedAt.UTC(), Metrics: CloneMetrics(input.Metrics), Result: input.Result, Inspector: input.Inspector, IssuedAt: issuedAt.UTC()}
 	c.Digest = CertificateDigest(c, evidence.Digest, task.ID)
 	return c, nil
 }
@@ -65,4 +65,16 @@ func CertificateDigest(c CareCertificate, evidenceDigest, taskID string) string 
 
 func VerifyCertificate(c CareCertificate, evidenceDigest, taskID string) bool {
 	return c.Digest != "" && c.Digest == CertificateDigest(c, evidenceDigest, taskID)
+}
+
+// CloneMetrics returns a shallow copy of in so callers cannot mutate the original map.
+func CloneMetrics(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }

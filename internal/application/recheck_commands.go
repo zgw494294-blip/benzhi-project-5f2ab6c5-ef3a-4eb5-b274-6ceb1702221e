@@ -118,7 +118,7 @@ func (s *Service) loadRecheckResult(scope, key string, cmd RecheckCommand) (Rech
 	if entry.requestHash != hash {
 		return RecheckResult{}, false, domain.ErrIdempotency
 	}
-	return entry.result, true, nil
+	return cloneRecheckResult(entry.result), true, nil
 }
 
 func (s *Service) rememberRecheckResult(scope, key string, cmd RecheckCommand, result RecheckResult) {
@@ -126,9 +126,20 @@ func (s *Service) rememberRecheckResult(scope, key string, cmd RecheckCommand, r
 	if err != nil {
 		return
 	}
+	cloned := cloneRecheckResult(result)
 	s.recheckMu.Lock()
-	s.recheckResults[scope+"\x00"+key] = recheckCacheEntry{requestHash: hash, result: result}
+	s.recheckResults[scope+"\x00"+key] = recheckCacheEntry{requestHash: hash, result: cloned}
 	s.recheckMu.Unlock()
+}
+
+func cloneRecheckResult(r RecheckResult) RecheckResult {
+	clone := r
+	if r.Certificate != nil {
+		c := *r.Certificate
+		c.Metrics = domain.CloneMetrics(c.Metrics)
+		clone.Certificate = &c
+	}
+	return clone
 }
 
 func completeBatchIfReady(ctx context.Context, repo Repository, batchID string) error {
