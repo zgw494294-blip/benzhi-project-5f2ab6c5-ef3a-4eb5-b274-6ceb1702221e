@@ -21,6 +21,13 @@ type Service struct {
 	dashboardCall *dashboardCall
 }
 
+// maxDashboardRetries bounds how many times a healthy follower may retry the
+// dashboard query after joining an in-flight call whose leader was cancelled
+// before it could finish loading. This keeps retry loops finite even under
+// pathological cancellation storms while still letting a single cancelled
+// leader not poison healthy concurrent requests.
+const maxDashboardRetries = 8
+
 type dashboardCall struct {
 	done chan struct{}
 	view DashboardView

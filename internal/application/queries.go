@@ -8,18 +8,32 @@ import (
 )
 
 func (s *Service) Dashboard(ctx context.Context) (DashboardView, error) {
-	call, leader := s.beginDashboardCall()
-	if !leader {
+	for attempt := 0; ; attempt++ {
+		call, leader := s.beginDashboardCall()
+		if leader {
+			call.view, call.err = s.loadDashboard(ctx)
+			s.finishDashboardCall(call)
+			return call.view, call.err
+		}
 		select {
 		case <-ctx.Done():
 			return DashboardView{}, ctx.Err()
 		case <-call.done:
-			return call.view, call.err
+		}
+		view, err := call.view, call.err
+		// When the leader's own context was cancelled/deadlined mid-load, the
+		// resulting error is not a true data failure: a follower whose request is
+		// still healthy should not inherit that cancellation. Retry by becoming the
+		// new leader and reloading, instead of surfacing an error that a fresh
+		// query would not have produced. Guard against pathological retry loops.
+		if err == nil || ctx.Err() != nil || attempt >= maxDashboardRetries || !isContextError(err) {
+			return view, err
 		}
 	}
-	call.view, call.err = s.loadDashboard(ctx)
-	s.finishDashboardCall(call)
-	return call.view, call.err
+}
+
+func isContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func (s *Service) beginDashboardCall() (*dashboardCall, bool) {
