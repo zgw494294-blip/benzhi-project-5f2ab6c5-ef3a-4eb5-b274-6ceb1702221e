@@ -8,15 +8,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"citytree/internal/domain"
 )
 
 type Service struct {
-	store       Store
-	now         func() time.Time
-	digestCache map[string]string
+	store        Store
+	now          func() time.Time
+	digestCache  map[string]string
+	digestMutex  sync.RWMutex
 }
 
 func NewService(store Store) *Service {
@@ -41,11 +43,15 @@ func (s *Service) requestDigest(value any) (string, error) {
 }
 
 func (s *Service) loadRequestDigest(key string) (string, bool) {
+	s.digestMutex.RLock()
+	defer s.digestMutex.RUnlock()
 	digest, ok := s.digestCache[key]
 	return digest, ok
 }
 
 func (s *Service) rememberRequestDigest(key, digest string) {
+	s.digestMutex.Lock()
+	defer s.digestMutex.Unlock()
 	s.digestCache[key] = digest
 }
 
