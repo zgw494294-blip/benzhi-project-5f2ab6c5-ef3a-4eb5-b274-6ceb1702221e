@@ -53,14 +53,30 @@ func (s *SQLiteStore) WithinTx(ctx context.Context, fn func(application.Reposito
 		return err
 	}
 	repo := &repository{q: tx}
-	if err := fn(repo); err != nil {
+	if err = fn(repo); err != nil {
 		_ = tx.Rollback()
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	// Persist the integrity checkpoint for the audit tail written inside the
+	// transaction before committing. If the checkpoint cannot be written
+	// atomically (for example because the integrity file is unavailable), the
+	// transaction is rolled back so no visible business commit is left behind:
+	// callers see the failure, idempotent retries do not observe a cached
+	// result, and the recovery checkpoint continues to match the database.
+	if err = s.writeCheckpoint(ctx, repo); err != nil {
+		_ = tx.Rollback()
 		return err
 	}
-	return s.Checkpoint(ctx)
+	// Capture the prior checkpoint so it can be restored if the commit fails
+	// after the new checkpoint has already replaced the file. Without this,
+	// a post-checkpoint commit failure would leave the checkpoint pointing at
+	// audit data that never became durable.
+	prev, hadPrev := s.saveCheckpoint()
+	if err = tx.Commit(); err != nil {
+		s.restoreCheckpoint(prev, hadPrev)
+		return err
+	}
+	return nil
 }
 
 func (s *SQLiteStore) Ping(ctx context.Context) error {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"citytree/internal/application"
 	"citytree/internal/domain"
 )
 
@@ -19,11 +20,22 @@ type checkpoint struct {
 	Seal    string `json:"seal"`
 }
 
+// Checkpoint writes the integrity checkpoint for the current database state
+// using the store's default (non-transactional) connection.
 func (s *SQLiteStore) Checkpoint(ctx context.Context) error {
+	return s.writeCheckpoint(ctx, s.repo())
+}
+
+// writeCheckpoint writes the integrity checkpoint reflecting the last audit
+// event visible to repo. When called with a transaction's repository, the
+// checkpoint captures uncommitted audit data so it can be persisted before the
+// transaction commits; this guarantees that a checkpoint write failure can roll
+// the transaction back without leaving visible business data behind.
+func (s *SQLiteStore) writeCheckpoint(ctx context.Context, repo application.Repository) error {
 	if s.path == ":memory:" {
 		return nil
 	}
-	last, err := s.LastAudit(ctx)
+	last, err := repo.LastAudit(ctx)
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil
 	}
@@ -60,6 +72,39 @@ func (s *SQLiteStore) Checkpoint(ctx context.Context) error {
 	}
 	defer dir.Close()
 	return dir.Sync()
+}
+
+// saveCheckpoint reads the current checkpoint file content so it can be
+// restored by restoreCheckpoint if a transaction commit fails after a new
+// checkpoint has been written.
+func (s *SQLiteStore) saveCheckpoint() ([]byte, bool) {
+	if s.path == ":memory:" {
+		return nil, false
+	}
+	prev, err := os.ReadFile(s.checkpointPath)
+	if err != nil {
+		return nil, false
+	}
+	return prev, true
+}
+
+// restoreCheckpoint reverts the checkpoint file to prev when a transaction
+// commit fails after writeCheckpoint has already replaced it. If no prior
+// checkpoint existed the new file is removed so VerifyIntegrity treats the
+// state as unchecked rather than pointing at rolled-back audit data.
+func (s *SQLiteStore) restoreCheckpoint(prev []byte, hadPrev bool) {
+	if s.path == ":memory:" {
+		return
+	}
+	if !hadPrev {
+		_ = os.Remove(s.checkpointPath)
+		return
+	}
+	_ = os.WriteFile(s.checkpointPath, prev, 0o644)
+	if dir, err := os.Open(filepath.Dir(s.checkpointPath)); err == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
 }
 
 func (s *SQLiteStore) VerifyIntegrity(ctx context.Context) error {
