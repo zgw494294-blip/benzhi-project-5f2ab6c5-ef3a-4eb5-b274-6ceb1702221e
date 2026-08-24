@@ -8,14 +8,23 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"citytree/internal/domain"
 )
 
 type Service struct {
-	store Store
-	now   func() time.Time
+	store         Store
+	now           func() time.Time
+	dashboardMu   sync.Mutex
+	dashboardCall *dashboardCall
+}
+
+type dashboardCall struct {
+	done chan struct{}
+	view DashboardView
+	err  error
 }
 
 func NewService(store Store) *Service {

@@ -8,6 +8,41 @@ import (
 )
 
 func (s *Service) Dashboard(ctx context.Context) (DashboardView, error) {
+	call, leader := s.beginDashboardCall()
+	if !leader {
+		select {
+		case <-ctx.Done():
+			return DashboardView{}, ctx.Err()
+		case <-call.done:
+			return call.view, call.err
+		}
+	}
+	call.view, call.err = s.loadDashboard(ctx)
+	s.finishDashboardCall(call)
+	return call.view, call.err
+}
+
+func (s *Service) beginDashboardCall() (*dashboardCall, bool) {
+	s.dashboardMu.Lock()
+	defer s.dashboardMu.Unlock()
+	if s.dashboardCall != nil {
+		return s.dashboardCall, false
+	}
+	call := &dashboardCall{done: make(chan struct{})}
+	s.dashboardCall = call
+	return call, true
+}
+
+func (s *Service) finishDashboardCall(call *dashboardCall) {
+	s.dashboardMu.Lock()
+	close(call.done)
+	if s.dashboardCall == call {
+		s.dashboardCall = nil
+	}
+	s.dashboardMu.Unlock()
+}
+
+func (s *Service) loadDashboard(ctx context.Context) (DashboardView, error) {
 	batches, err := s.store.ListBatches(ctx)
 	if err != nil {
 		return DashboardView{}, err
