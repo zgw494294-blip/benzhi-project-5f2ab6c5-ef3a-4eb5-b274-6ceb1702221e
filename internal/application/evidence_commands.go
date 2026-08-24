@@ -26,7 +26,7 @@ type SubmitEvidenceResult struct {
 }
 
 func (s *Service) SubmitEvidence(ctx context.Context, cmd SubmitEvidenceCommand, key string) (SubmitEvidenceResult, error) {
-	return executeIdempotent(ctx, s, "submit-evidence:"+cmd.TreeID, key, cmd, func(repo Repository) (SubmitEvidenceResult, error) {
+	return executeIdempotent(ctx, s, "submit-evidence:"+cmd.TreeID, key, cmd, func(ctx context.Context, repo Repository) (SubmitEvidenceResult, error) {
 		tree, err := repo.GetTree(ctx, cmd.TreeID)
 		if err != nil {
 			return SubmitEvidenceResult{}, err

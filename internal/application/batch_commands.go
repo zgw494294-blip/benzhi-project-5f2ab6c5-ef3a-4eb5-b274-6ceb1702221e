@@ -26,7 +26,7 @@ type CreateBatchResult struct {
 }
 
 func (s *Service) CreateBatch(ctx context.Context, cmd CreateBatchCommand, key string) (CreateBatchResult, error) {
-	return executeIdempotent(ctx, s, "create-batch", key, cmd, func(repo Repository) (CreateBatchResult, error) {
+	return executeIdempotent(ctx, s, "create-batch", key, cmd, func(ctx context.Context, repo Repository) (CreateBatchResult, error) {
 		now := s.now()
 		batch, err := domain.NewInspectionBatch(cmd.Name, cmd.Area, now)
 		if err != nil {
@@ -61,7 +61,7 @@ type AddTreeCommand struct {
 }
 
 func (s *Service) AddTree(ctx context.Context, cmd AddTreeCommand, key string) (domain.TreeAsset, error) {
-	return executeIdempotent(ctx, s, "add-tree:"+cmd.BatchID, key, cmd, func(repo Repository) (domain.TreeAsset, error) {
+	return executeIdempotent(ctx, s, "add-tree:"+cmd.BatchID, key, cmd, func(ctx context.Context, repo Repository) (domain.TreeAsset, error) {
 		batch, err := repo.GetBatch(ctx, cmd.BatchID)
 		if err != nil {
 			return domain.TreeAsset{}, err

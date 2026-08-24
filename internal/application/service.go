@@ -33,16 +33,17 @@ func requestDigest(value any) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string, request any, command func(Repository) (T, error)) (T, error) {
+func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string, request any, command func(context.Context, Repository) (T, error)) (T, error) {
 	var zero T
 	if !domain.ValidIdempotencyKey(key) {
 		return zero, domain.ValidationErrors{{Field: "idempotencyKey", Message: "长度必须在 8 到 128 之间"}}
 	}
+	commandCtx := context.WithoutCancel(ctx)
 	hash, err := requestDigest(request)
 	if err != nil {
 		return zero, err
 	}
-	if cached, err := s.store.GetIdempotency(ctx, scope, key); err == nil {
+	if cached, err := s.store.GetIdempotency(commandCtx, scope, key); err == nil {
 		if cached.RequestHash != hash {
 			return zero, domain.ErrIdempotency
 		}
@@ -55,8 +56,8 @@ func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string
 		return zero, err
 	}
 	var result T
-	err = s.store.WithinTx(ctx, func(repo Repository) error {
-		if cached, err := repo.GetIdempotency(ctx, scope, key); err == nil {
+	err = s.store.WithinTx(commandCtx, func(repo Repository) error {
+		if cached, err := repo.GetIdempotency(commandCtx, scope, key); err == nil {
 			if cached.RequestHash != hash {
 				return domain.ErrIdempotency
 			}
@@ -64,7 +65,7 @@ func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string
 		} else if !errors.Is(err, domain.ErrNotFound) {
 			return err
 		}
-		value, err := command(repo)
+		value, err := command(commandCtx, repo)
 		if err != nil {
 			return err
 		}
@@ -73,7 +74,7 @@ func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string
 		if err != nil {
 			return err
 		}
-		return repo.InsertIdempotency(ctx, IdempotencyRecord{Scope: scope, Key: key, RequestHash: hash, Response: data, CreatedAt: s.now().UTC()})
+		return repo.InsertIdempotency(commandCtx, IdempotencyRecord{Scope: scope, Key: key, RequestHash: hash, Response: data, CreatedAt: s.now().UTC()})
 	})
 	return result, err
 }

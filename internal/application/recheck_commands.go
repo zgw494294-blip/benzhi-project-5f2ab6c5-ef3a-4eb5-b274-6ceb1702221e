@@ -25,7 +25,7 @@ type RecheckResult struct {
 }
 
 func (s *Service) Recheck(ctx context.Context, cmd RecheckCommand, key string) (RecheckResult, error) {
-	return executeIdempotent(ctx, s, "recheck:"+cmd.TreeID, key, cmd, func(repo Repository) (RecheckResult, error) {
+	return executeIdempotent(ctx, s, "recheck:"+cmd.TreeID, key, cmd, func(ctx context.Context, repo Repository) (RecheckResult, error) {
 		tree, err := repo.GetTree(ctx, cmd.TreeID)
 		if err != nil {
 			return RecheckResult{}, err

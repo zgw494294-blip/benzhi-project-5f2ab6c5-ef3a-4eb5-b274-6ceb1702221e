@@ -23,7 +23,7 @@ type AssessResult struct {
 }
 
 func (s *Service) Assess(ctx context.Context, cmd AssessCommand, key string) (AssessResult, error) {
-	return executeIdempotent(ctx, s, "assess:"+cmd.TreeID, key, cmd, func(repo Repository) (AssessResult, error) {
+	return executeIdempotent(ctx, s, "assess:"+cmd.TreeID, key, cmd, func(ctx context.Context, repo Repository) (AssessResult, error) {
 		tree, err := repo.GetTree(ctx, cmd.TreeID)
 		if err != nil {
 			return AssessResult{}, err
@@ -93,7 +93,7 @@ type CompleteRemediationResult struct {
 }
 
 func (s *Service) CompleteRemediation(ctx context.Context, cmd CompleteRemediationCommand, key string) (CompleteRemediationResult, error) {
-	return executeIdempotent(ctx, s, "complete-remediation:"+cmd.TreeID, key, cmd, func(repo Repository) (CompleteRemediationResult, error) {
+	return executeIdempotent(ctx, s, "complete-remediation:"+cmd.TreeID, key, cmd, func(ctx context.Context, repo Repository) (CompleteRemediationResult, error) {
 		tree, err := repo.GetTree(ctx, cmd.TreeID)
 		if err != nil {
 			return CompleteRemediationResult{}, err
