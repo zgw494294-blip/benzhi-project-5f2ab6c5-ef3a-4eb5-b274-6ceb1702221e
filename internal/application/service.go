@@ -14,23 +14,39 @@ import (
 )
 
 type Service struct {
-	store Store
-	now   func() time.Time
+	store       Store
+	now         func() time.Time
+	digestCache map[string]string
 }
 
 func NewService(store Store) *Service {
-	return &Service{store: store, now: time.Now}
+	return &Service{store: store, now: time.Now, digestCache: make(map[string]string)}
 }
 
 func (s *Service) Store() Store { return s.store }
 
-func requestDigest(value any) (string, error) {
+func (s *Service) requestDigest(value any) (string, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return "", err
 	}
+	cacheKey := string(data)
+	if digest, ok := s.loadRequestDigest(cacheKey); ok {
+		return digest, nil
+	}
 	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
+	digest := hex.EncodeToString(sum[:])
+	s.rememberRequestDigest(cacheKey, digest)
+	return digest, nil
+}
+
+func (s *Service) loadRequestDigest(key string) (string, bool) {
+	digest, ok := s.digestCache[key]
+	return digest, ok
+}
+
+func (s *Service) rememberRequestDigest(key, digest string) {
+	s.digestCache[key] = digest
 }
 
 func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string, request any, command func(Repository) (T, error)) (T, error) {
@@ -38,7 +54,7 @@ func executeIdempotent[T any](ctx context.Context, s *Service, scope, key string
 	if !domain.ValidIdempotencyKey(key) {
 		return zero, domain.ValidationErrors{{Field: "idempotencyKey", Message: "长度必须在 8 到 128 之间"}}
 	}
-	hash, err := requestDigest(request)
+	hash, err := s.requestDigest(request)
 	if err != nil {
 		return zero, err
 	}
