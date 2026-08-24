@@ -16,6 +16,8 @@ import (
 type Service struct {
 	store Store
 	now   func() time.Time
+	// dashboardScratch is reused to reduce allocations while assembling the view.
+	dashboardScratch DashboardView
 }
 
 func NewService(store Store) *Service {

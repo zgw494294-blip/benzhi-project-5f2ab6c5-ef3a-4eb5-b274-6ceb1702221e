@@ -12,7 +12,11 @@ func (s *Service) Dashboard(ctx context.Context) (DashboardView, error) {
 	if err != nil {
 		return DashboardView{}, err
 	}
-	view := DashboardView{Batches: make([]BatchSummary, 0, len(batches))}
+	view := &s.dashboardScratch
+	view.Batches = view.Batches[:0]
+	view.TotalTrees = 0
+	view.OpenTasks = 0
+	view.Certificates = 0
 	for _, batch := range batches {
 		detail, err := s.Batch(ctx, batch.ID)
 		if err != nil {
@@ -31,7 +35,7 @@ func (s *Service) Dashboard(ctx context.Context) (DashboardView, error) {
 		}
 		view.Batches = append(view.Batches, summary)
 	}
-	return view, nil
+	return *view, nil
 }
 
 func (s *Service) Batch(ctx context.Context, id string) (BatchView, error) {
