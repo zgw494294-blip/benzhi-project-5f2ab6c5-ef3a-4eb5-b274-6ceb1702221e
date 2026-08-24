@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="城市树木健康巡检、修复与复验工作台">
+  <title>城市树木健康巡检台</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="brand-copy"><p>URBAN TREE CARE · 城市养护</p><h1>树木健康巡检台</h1></div>
+    <div class="system-state"><span class="pulse"></span><span>本地审计在线</span></div>
+    <button class="primary top-action" type="button" data-open="create-batch">新建巡检批次</button>
+  </header>
+
+  <section class="summary-band" aria-label="巡检总览">
+    <div><span class="metric" id="metric-batches">0</span><small>巡检批次</small></div>
+    <div><span class="metric" id="metric-trees">0</span><small>登记树木</small></div>
+    <div><span class="metric warning" id="metric-tasks">0</span><small>待处理任务</small></div>
+    <div><span class="metric verified" id="metric-certs">0</span><small>验收凭据</small></div>
+    <div class="summary-note"><b id="today-label"></b><span>巡检记录已同步 · 审计链正常</span></div>
+  </section>
+
+  <main class="workspace">
+    <aside class="batch-rail">
+      <div class="section-title"><div><span>01</span><h2>巡检批次</h2></div><button class="quiet" type="button" data-open="create-batch">新增</button></div>
+      <div id="batch-list" class="batch-list" aria-live="polite"></div>
+    </aside>
+
+    <section class="tree-workspace">
+      <div class="section-title tree-heading">
+        <div><span>02</span><div><h2 id="batch-title">选择巡检批次</h2><p id="batch-subtitle">从左侧批次进入树木流程</p></div></div>
+        <button class="secondary" id="add-tree-button" type="button" data-open="add-tree" disabled>登记树木</button>
+      </div>
+      <div class="progress-track" aria-label="批次完成进度"><div id="progress-fill"></div></div>
+      <div class="filter-row">
+        <div class="segmented" role="group" aria-label="树木状态筛选">
+          <button type="button" class="active" data-filter="all">全部</button>
+          <button type="button" data-filter="risk">风险树木</button>
+          <button type="button" data-filter="closed">已关闭</button>
+        </div>
+        <span id="tree-count">0 棵树</span>
+      </div>
+      <div id="tree-list" class="tree-list">
+        <div class="empty-state"><div class="empty-rings"><i></i><i></i><i></i></div><h3>等待选择批次</h3><p>树木状态、风险任务和验收凭据将在此集中呈现。</p></div>
+      </div>
+    </section>
+
+    <aside class="detail-panel" id="detail-panel">
+      <div class="section-title"><div><span>03</span><h2>处置详情</h2></div><button class="icon-close" id="close-detail" type="button" aria-label="关闭详情">×</button></div>
+      <div id="detail-content" class="detail-content"><p class="detail-placeholder">选择一棵树查看证据链与下一步操作。</p></div>
+    </aside>
+  </main>
+
+  <dialog id="action-dialog">
+    <form method="dialog" id="action-form">
+      <div class="dialog-head"><div><span id="dialog-kicker">流程操作</span><h2 id="dialog-title">新建巡检批次</h2></div><button class="icon-close" value="cancel" aria-label="关闭">×</button></div>
+      <div id="form-fields" class="form-fields"></div>
+      <div class="dialog-actions"><button type="button" class="quiet" data-cancel>取消</button><button type="submit" class="primary" id="submit-action">确认提交</button></div>
+    </form>
+  </dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
