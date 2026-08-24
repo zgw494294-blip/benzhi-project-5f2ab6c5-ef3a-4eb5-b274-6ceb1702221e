@@ -61,14 +61,14 @@ type AddTreeCommand struct {
 }
 
 func (s *Service) AddTree(ctx context.Context, cmd AddTreeCommand, key string) (domain.TreeAsset, error) {
+	batch, err := s.store.GetBatch(ctx, cmd.BatchID)
+	if err != nil {
+		return domain.TreeAsset{}, err
+	}
+	if batch.Status == domain.BatchCompleted {
+		return domain.TreeAsset{}, domain.ErrTransition
+	}
 	return executeIdempotent(ctx, s, "add-tree:"+cmd.BatchID, key, cmd, func(repo Repository) (domain.TreeAsset, error) {
-		batch, err := repo.GetBatch(ctx, cmd.BatchID)
-		if err != nil {
-			return domain.TreeAsset{}, err
-		}
-		if batch.Status == domain.BatchCompleted {
-			return domain.TreeAsset{}, domain.ErrTransition
-		}
 		tree, err := domain.RegisterTree(batch.ID, domain.NewTree{Name: cmd.Name, RoadLocation: cmd.RoadLocation, Species: cmd.Species, DiameterCM: cmd.DiameterCM, Responsibility: cmd.ResponsibilityArea}, s.now())
 		if err != nil {
 			return domain.TreeAsset{}, err
