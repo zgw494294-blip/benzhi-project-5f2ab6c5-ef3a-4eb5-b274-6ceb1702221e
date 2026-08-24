@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 
 	"citytree/internal/domain"
 )
@@ -48,22 +47,16 @@ func (s *Service) Batch(ctx context.Context, id string) (BatchView, error) {
 		item := TreeView{Tree: tree}
 		if evidence, e := s.store.LatestEvidence(ctx, tree.ID); e == nil {
 			item.Evidence = &evidence
-		} else if !errors.Is(e, domain.ErrNotFound) {
-			return BatchView{}, e
 		}
 		if task, e := s.store.ActiveTask(ctx, tree.ID); e == nil {
 			item.Task = &task
 			if task.RiskLevel.RequiresTask() {
 				view.RiskTrees++
 			}
-		} else if !errors.Is(e, domain.ErrNotFound) {
-			return BatchView{}, e
 		}
 		if cert, e := s.store.CertificateByTree(ctx, tree.ID); e == nil {
 			item.Certificate = &cert
 			view.Certificates = append(view.Certificates, cert)
-		} else if !errors.Is(e, domain.ErrNotFound) {
-			return BatchView{}, e
 		}
 		if tree.CurrentStatus == domain.TreeClosed {
 			view.Closed++
@@ -81,18 +74,12 @@ func (s *Service) Tree(ctx context.Context, id string) (TreeView, error) {
 	view := TreeView{Tree: tree}
 	if v, e := s.store.LatestEvidence(ctx, id); e == nil {
 		view.Evidence = &v
-	} else if !errors.Is(e, domain.ErrNotFound) {
-		return TreeView{}, e
 	}
 	if v, e := s.store.ActiveTask(ctx, id); e == nil {
 		view.Task = &v
-	} else if !errors.Is(e, domain.ErrNotFound) {
-		return TreeView{}, e
 	}
 	if v, e := s.store.CertificateByTree(ctx, id); e == nil {
 		view.Certificate = &v
-	} else if !errors.Is(e, domain.ErrNotFound) {
-		return TreeView{}, e
 	}
 	return view, nil
 }
