@@ -24,8 +24,17 @@ type RecheckResult struct {
 	Certificate *domain.CareCertificate `json:"certificate,omitempty"`
 }
 
+type recheckCacheEntry struct {
+	requestHash string
+	result      RecheckResult
+}
+
 func (s *Service) Recheck(ctx context.Context, cmd RecheckCommand, key string) (RecheckResult, error) {
-	return executeIdempotent(ctx, s, "recheck:"+cmd.TreeID, key, cmd, func(repo Repository) (RecheckResult, error) {
+	scope := "recheck:" + cmd.TreeID
+	if cached, ok, err := s.loadRecheckResult(scope, key, cmd); err != nil || ok {
+		return cached, err
+	}
+	result, err := executeIdempotent(ctx, s, scope, key, cmd, func(repo Repository) (RecheckResult, error) {
 		tree, err := repo.GetTree(ctx, cmd.TreeID)
 		if err != nil {
 			return RecheckResult{}, err
@@ -89,6 +98,37 @@ func (s *Service) Recheck(ctx context.Context, cmd RecheckCommand, key string) (
 		}
 		return result, nil
 	})
+	if err == nil {
+		s.rememberRecheckResult(scope, key, cmd, result)
+	}
+	return result, err
+}
+
+func (s *Service) loadRecheckResult(scope, key string, cmd RecheckCommand) (RecheckResult, bool, error) {
+	hash, err := requestDigest(cmd)
+	if err != nil {
+		return RecheckResult{}, false, err
+	}
+	s.recheckMu.RLock()
+	entry, ok := s.recheckResults[scope+"\x00"+key]
+	s.recheckMu.RUnlock()
+	if !ok {
+		return RecheckResult{}, false, nil
+	}
+	if entry.requestHash != hash {
+		return RecheckResult{}, false, domain.ErrIdempotency
+	}
+	return entry.result, true, nil
+}
+
+func (s *Service) rememberRecheckResult(scope, key string, cmd RecheckCommand, result RecheckResult) {
+	hash, err := requestDigest(cmd)
+	if err != nil {
+		return
+	}
+	s.recheckMu.Lock()
+	s.recheckResults[scope+"\x00"+key] = recheckCacheEntry{requestHash: hash, result: result}
+	s.recheckMu.Unlock()
 }
 
 func completeBatchIfReady(ctx context.Context, repo Repository, batchID string) error {

@@ -8,18 +8,25 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"citytree/internal/domain"
 )
 
 type Service struct {
-	store Store
-	now   func() time.Time
+	store          Store
+	now            func() time.Time
+	recheckMu      sync.RWMutex
+	recheckResults map[string]recheckCacheEntry
 }
 
 func NewService(store Store) *Service {
-	return &Service{store: store, now: time.Now}
+	return &Service{
+		store:          store,
+		now:            time.Now,
+		recheckResults: make(map[string]recheckCacheEntry),
+	}
 }
 
 func (s *Service) Store() Store { return s.store }
