@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"citytree/internal/application"
+	"citytree/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
 type SQLiteStore struct {
-	db             *sql.DB
-	path           string
-	checkpointPath string
+	db                 *sql.DB
+	path               string
+	checkpointPath     string
+	certificateScratch []domain.CareCertificate
 }
 
 func Open(ctx context.Context, path string) (*SQLiteStore, error) {

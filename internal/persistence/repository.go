@@ -68,7 +68,13 @@ func (s *SQLiteStore) CertificateByTree(ctx context.Context, id string) (domain.
 	return s.repo().CertificateByTree(ctx, id)
 }
 func (s *SQLiteStore) ListCertificatesByBatch(ctx context.Context, id string) ([]domain.CareCertificate, error) {
-	return s.repo().ListCertificatesByBatch(ctx, id)
+	values, err := s.repo().ListCertificatesByBatch(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// Reuse one backing array to reduce allocations for dashboard reads.
+	s.certificateScratch = append(s.certificateScratch[:0], values...)
+	return s.certificateScratch, nil
 }
 func (s *SQLiteStore) GetIdempotency(ctx context.Context, scope, key string) (application.IdempotencyRecord, error) {
 	return s.repo().GetIdempotency(ctx, scope, key)
